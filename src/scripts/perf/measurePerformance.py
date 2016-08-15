@@ -182,23 +182,33 @@ def checkTimeOutPut(args):
         global stdo
         global stde
         try:
-            stdo, stde = currCommandProcess.communicate()
-            printLog('stdout:\n'+str(stdo))
-            printLog('stderr:\n'+str(stde))
+            lines = []
+            for line in iter(currCommandProcess.stdout.readline, ""):
+                lines.append(line)
+                print line.rstrip("\n")
+            stdo = "".join(lines)
+            ret = currCommandProcess.wait()
+            if ret != 0:
+                printLog("ERROR: {prog} exited with status {ret}".format(
+                    prog=args[0],
+                    ret=ret))
         except:
             printLog("ERROR: UNKNOWN Exception - +checkWinTimeOutPut()::executeCommand()")
 
-    currCommandProcess = subprocess.Popen(args, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    currCommandProcess = subprocess.Popen(args, 
+            stdout=subprocess.PIPE, 
+            stderr=subprocess.STDOUT)
     thread = Thread(target=executeCommand)
     thread.start()
-    thread.join(TIMOUT_VAL) #wait for the thread to complete 
+    # thread.join(TIMOUT_VAL) #wait for the thread to complete 
+    thread.join() #wait for the thread to complete 
     if thread.is_alive():
         printLog('ERROR: Killing the process - terminating thread because it is taking too much of time to execute')
         currCommandProcess.kill()
         printLog('ERROR: Timed out exception')
         raise errorHandler.ApplicationException(__file__, errorHandler.TIME_OUT)
-    if stdo == "" or stdo==None:
-        errCode = currCommandProcess.poll()
+    errCode = currCommandProcess.poll()
+    if errCode != 0:
         printLog('ERROR: @@@@@Raising Called processor exception')
         raise subprocess.CalledProcessError(errCode, args, output=stde)
     return stdo
